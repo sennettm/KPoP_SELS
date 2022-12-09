@@ -25,7 +25,7 @@ However, we are exploring many questions.
 
 (2) What assumptions limit our empirical models of evolution and how can those empirical models be improved?
 
-(3) What is the relationship between population genetics and evolution? For example, population genetic models only describe what happens to an allele after a change in fitness occurs. Our model links change in fitness to a cause (i.e. a change in the stability of a protein).  
+(3) Are most mutations deleterious, neutral, or nearly neutral with respect to protein stability? How would this effect the observed stability of proteins we observe today?
 
 ## Implementing
 
