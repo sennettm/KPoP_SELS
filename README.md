@@ -5,6 +5,8 @@ Kimura POpulation and Protein Structures Evolve via Linked Sites
 
 Kimura POpulation and Protein Structures Evolve via Linked Sites (KPOP SELS) is a python script to simulate evolution of a protein sequence along a phylogenetic tree. The change in protein stability of a proposed mutation determines the change in fitness of the protein and probability of fixation, which is calculated using the Kimura equation. 
 
+Please read the following; A thermodynamic model of protein structure evolution explains empirical amino acid substitution matrices by Norn et. al. (https://doi.org/10.1002/pro.4155). The foundation of KPOP_SELS is based upon it.
+
 **What is the motivation behind KPOP SELS?**
 
 There are plethora of programs available to simulate evolution. However, many of these programs assume that a mutation at one site does not affect the probability of observing a mutation at another site. In our model a mutation at one site does affect the probability of observing a mutation at another site.
@@ -26,6 +28,9 @@ However, we are exploring many questions.
 (1) How do different parameters like effective population size, protein structure, and tree topology affect the identity of the sequences we observe, those sequence's stability, and the types of accepted mutations over the course of evolution. All of these observations are the basis of empirical models of evolution that are standard in phylogenetics. 
 
 
+![4ND5_Neff_1000000_Emut_100000_ind_dGs_miyazawa](https://user-images.githubusercontent.com/111892527/206775725-55eb2415-4d0e-4a6b-a8d0-78131786e075.png)
+
+We can track the dG of each protein as it evolves along some branch. For the above figure, we arbitrarily track the dG for 100,000 proposed mutations and only a fraction of which actually fix into the population. We can see that sequence A gets trapped in a local minima between proposed mutations 60,000-80,000.
 
 (2) What assumptions limit our empirical models of evolution and how can those empirical models be improved?
 
