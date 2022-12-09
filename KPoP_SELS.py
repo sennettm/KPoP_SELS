@@ -3,7 +3,7 @@
 #################################################################################################################################
 #Script Name    : KPoP_SELS.py
 #Description    : simulate evolution along a tree using a model dependent on protein stability and population genetics
-#Author         : Michael A Sennett
+#Author         : Michael A Sennett & Douglas Theobald
 #################################################################################################################################
 
 import gzip
