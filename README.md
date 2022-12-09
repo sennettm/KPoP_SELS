@@ -71,12 +71,12 @@ Copy the scripts and one of the test data sets into some test folder.
 
 Usage
 ```
-./KPOP_SELS_v0.1.sh -h 
+./KPOP_SELS_v0.1.py -h 
 ```
 
 Example
 ```
-./KPOP_SELS_v0.1.sh -T tree_01.txt -P 4nd5
+./KPOP_SELS_v0.1.py -T tree_01.txt -P 4nd5
 ```
 
 ## Output
