@@ -13,8 +13,7 @@ There are plethora of programs available to simulate evolution. However, many of
 
 For a given proposed mutation in a protein structure we determine the probability of fixation from the Kimura equation.
 
-![Fig_Abstract](https://user-images.githubusercontent.com/111892527/206766110-c35eeef0-e3f3-4060-8b0d-33c08079ec63.svg)
-
+![Fig_Abstract](https://user-images.githubusercontent.com/111892527/206770574-88d90850-d4bd-4a9d-bd90-aef6264e59fb.svg)
 
 **What can we do with KPOP SELS?**
 
