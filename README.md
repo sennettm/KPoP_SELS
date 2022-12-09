@@ -3,11 +3,11 @@ Kimura POpulation and Protein Structures Evolve via Linked Sites
 
 **What is KPOP SELS?**
 
-Kimura POpulation and Protein Structures Evolve via Linked Sites (KPOP SELS) is a python script to simulate evolution of a protein sequence based on the interaction energy of residues in a protein structure. The change in interaction energy upon residue substitution determines the fitness of the protein, which in turn determines the selection coefficient. A probability of fixation is calculated using the Kimura equation. 
+Kimura POpulation and Protein Structures Evolve via Linked Sites (KPOP SELS) is a python script to simulate evolution of a protein sequence along a phylogenetic tree. The change in protein stability of a proposed mutation determines the change in fitness of the protein and probability of fixation, which is calculated using the Kimura equation. 
 
 **What is the motivation behind KPOP SELS?**
 
-There are plethora of programs available to simulate evolution. However, many of these programs assume that a mutation at one site does not affect the probability of observing a mutation at another site. In our model we are calculating the change in contact energy between the wild-type residue and the mutant, which affects the protein fitness and the probability that mutation fixes. Therefore, a mutation at one site does affect the probability of observing a mutation at another site in KPOP SELS.
+There are plethora of programs available to simulate evolution. However, many of these programs assume that a mutation at one site does not affect the probability of observing a mutation at another site. In our model a mutation at one site does affect the probability of observing a mutation at another site.
 
 **How does KPOP SELS work?**
 
