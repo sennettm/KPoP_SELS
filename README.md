@@ -11,7 +11,7 @@ There are plethora of programs available to simulate evolution. However, many of
 
 **How does KPOP SELS work?**
 
-Mutations are randomly introduced along a branch in a phylogenetic tree and the corresponding contact energies for the wild type and mutant are calculated using the contact energies from Miyazawa and Jernigan 1985. The change in interaction energy upon residue mutation determines the fitness of the protein, which in turn determines the selection coefficient, and as a result the probability of fixation. If a randomly selected number between 0 and 1 is less than the probability of fixation, then the mutation becomes fixed in the population and is the new wild-type residue. 
+For a given proposed mutation in a protein structure we determine the probability of fixation from the Kimura equation.
 
 ![Fig_Abstract](https://user-images.githubusercontent.com/111892527/206766110-c35eeef0-e3f3-4060-8b0d-33c08079ec63.svg)
 
