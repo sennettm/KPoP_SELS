@@ -7,7 +7,7 @@ Kimura POpulation and Protein Structures Evolve via Linked Sites (KPOP SELS) is 
 
 **What is the motivation behind KPOP SELS?**
 
-There are plethora of programs available to simulate evolution. However, many of these programs assume that a mutation at one site does not effect the probability of observing a mutation at another site. In our model we are calculating the change in contact energy between the wild-type residue and the mutant, which effects the protein fitness and the probability that mutation fixes. Therefore, a mutation at one site does effect the probability of observing a mutation at another site in KPOP SELS.
+There are plethora of programs available to simulate evolution. However, many of these programs assume that a mutation at one site does not affect the probability of observing a mutation at another site. In our model we are calculating the change in contact energy between the wild-type residue and the mutant, which affects the protein fitness and the probability that mutation fixes. Therefore, a mutation at one site does affect the probability of observing a mutation at another site in KPOP SELS.
 
 **How does KPOP SELS work?**
 
@@ -26,9 +26,11 @@ However, we are exploring many questions.
 
 (1) How do different parameters like effective population size, protein structure, and tree topology affect the identity of the sequences we observe, those sequence's stability, and the types of accepted mutations over the course of evolution. All of these observations are the basis of empirical models of evolution that are standard in phylogenetics. 
 
+
+
 (2) What assumptions limit our empirical models of evolution and how can those empirical models be improved?
 
-(3) Are most mutations deleterious, neutral, or nearly neutral with respect to protein stability? How would this effect the observed stability of proteins we observe today?
+(3) Are most mutations deleterious, neutral, or nearly neutral with respect to protein stability? How would this affect the observed stability of proteins we observe today?
 
 ## Implementing
 
