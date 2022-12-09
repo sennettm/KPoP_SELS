@@ -13,6 +13,8 @@ There are plethora of programs available to simulate evolution. However, many of
 
 Mutations are randomly introduced along a branch in a phylogenetic tree and the corresponding contact energies for the wild type and mutant are calculated using the contact energies from Miyazawa and Jernigan 1985. The change in interaction energy upon residue mutation determines the fitness of the protein, which in turn determines the selection coefficient, and as a result the probability of fixation. If a randomly selected number between 0 and 1 is less than the probability of fixation, then the mutation becomes fixed in the population and is the new wild-type residue. 
 
+[Fig_Abstract.pdf](https://github.com/sennettm/KPoP_SELS/files/10197107/Fig_Abstract.pdf)
+
 **What can we do with KPOP SELS?**
 
 You're only limited by your imagination. 
