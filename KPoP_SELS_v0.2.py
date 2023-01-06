@@ -468,7 +468,7 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
             seq_dGs[x[i].taxon.label]=tmp_dGs[-1]
             af_dGs.append(tmp_dGs)
            
-    out_tree=sim_tree.as_string('newick')
+    out_tree=sim_tree.as_string('newick', unquoted_underscores=True)
 
     return m, aln, af_slxns, af_probs, af_prob_of_fix, af_dGs, af_ddGs, mut_mat, bf_dGs, bf_ddG, out_tree
 
