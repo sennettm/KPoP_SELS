@@ -1,9 +1,9 @@
 #!/bin/env python3
 
 #################################################################################################################################
-#Script Name    : KPoP_SELS.py
+#Script Name    : EvoSim.py
 #Description    : simulate evolution along a tree using a model dependent on protein stability and population genetics
-#Author         : Michael A Sennett & Douglas Theobald
+#Author         : Michael A Sennett
 #################################################################################################################################
 
 import gzip
@@ -14,6 +14,7 @@ import dendropy as dp
 import os
 import argparse
 import matplotlib.pyplot as plt
+
         
 #################################################################################################################################
 
@@ -181,53 +182,116 @@ def trav_tree(sim_tree, all_tax):
     
 #################################################################################################################################
 
-def calc_ddG(tmp_seq, lookup_table, res_nums, AA_miya):
+def get_DNA_CDS(prot_seq):
+    
+    cds_seq=['X']*len(prot_seq)
+    i=0
+    for aa in prot_seq:
+        cdn=CODON[aa]
+        tmp_cdn=rd.sample(cdn, 1)
+        cds_seq[i]=tmp_cdn[0]
+        i+=1
+    
+    return cds_seq
+
+def get_cdn_key(val):
+    for keys, values in CODON.items():
+        for value in values:
+            if val == value:
+                return keys
+        
+
+#################################################################################################################################
+
+def calc_ddG(tmp_seq, lookup_table, res_nums, AA_miya, seq):
 
     #calculate the ddG of a mutation
+    
     res_dct=dict(zip(res_nums, range(len(res_nums))))
     site_mut=rd.sample(range(1,len(tmp_seq)),1)
-    wt_res=tmp_seq[site_mut[0]]
-    aa_mut_num_lst=rd.sample(range(len(AA_miya)), 20)
+    
+    if seq == 2:
+        cdn_seq=tmp_seq
+        #wt codon identity, 3L
+        wt_cd=cdn_seq[site_mut[0]]
+        #pos in wt codon to be mutated
+        pos=rd.sample(range(3), 1)
+        cd_pos=pos[0]
+        #sample nuc to mutate
+        mut_num_lst=rd.sample(range(len(DNA)), 4)
+        #make sure nuc actually would change
+        for mut_num in mut_num_lst:
+            #change nuc in codon
+            mut_cd=list(wt_cd)
+            mut_cd[cd_pos]=DNA[mut_num]
+            mut_cd=''.join(mut_cd)
+            #if no mut or mut to stop then pass, else loop is over
+            if DNA[mut_num] == wt_cd[cd_pos]:
+                pass
+            elif get_cdn_key(mut_cd) == 'stop':
+                pass
+            else:
+                break
+        
+        var_res=get_cdn_key(mut_cd)
+        wt_res=get_cdn_key(wt_cd)
+        
+        #create an aa seq for later
+        tmp_seq=[]
+        for cdn in cdn_seq:
+            aa = get_cdn_key(cdn)
+            tmp_seq.append(aa)
+        
+                
+    if seq < 2:    
+        wt_res=tmp_seq[site_mut[0]]
+        mut_num_lst=rd.sample(range(len(AA_miya)), 20)
 
-    #intro mutation according to poisson process for aa
-    for aa_mut_num in aa_mut_num_lst:
-        if AA_miya[aa_mut_num] == wt_res:
-            pass
-        else:
-            break
+        #intro mutation according to poisson process for aa
+        for mut_num in mut_num_lst:
+            if AA_miya[mut_num] == wt_res:
+                pass
+            else:
+                break
 
-    var_res=AA_miya[aa_mut_num]
+        var_res=AA_miya[mut_num]
+        #dummy codon
+        mut_cd='NNN'
+    
     struc_site_mut=res_nums[site_mut[0]]
     nn_res_3d=lookup_table.get(struc_site_mut)
 
-
+    
     cp_wt=[]
     cp_var=[]
-
+    
     for res in nn_res_3d:
         prim_site=res_dct.get(res)
-        prim_aa=tmp_seq[prim_site] 
+        prim_aa=tmp_seq[prim_site]
         nn_id=AA_miya_dct.get(prim_aa)
         wt_id=AA_miya_dct.get(wt_res)
         var_id=AA_miya_dct.get(var_res)
         cp_wt.append(miyazawa[wt_id][nn_id])
         cp_var.append(miyazawa[var_id][nn_id])
-        
+
     ddG=sum(cp_var)-sum(cp_wt)
 
-    
-    return ddG, wt_id, var_id, aa_mut_num, site_mut[0]
+    return ddG, wt_id, var_id, mut_num, site_mut[0], mut_cd
         
 #################################################################################################################################
 
 def calc_Pfix(dG_i, ddG, N_eff, fit):
     
     #calculate the probability of fixation  
-    if fit != 0:
-
+    if fit == 2:
+        mu=0.01
+        sigma=1.4
+        ddG=rd.gauss(mu, sigma)
+        
         dG_V=dG_i+ddG
-        wv=(1+np.exp(dG_V))**-1
-        wi=(1+np.exp(dG_i))**-1
+        wv=1/(1+np.exp(dG_V))
+        wi=1/(1+np.exp(dG_i))
+
         s_mut=np.log(wv)-np.log(wi)
 
         if N_eff > 10:
@@ -237,11 +301,28 @@ def calc_Pfix(dG_i, ddG, N_eff, fit):
         else:
             fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)
 
-        return fv, dG_V, s_mut
+        return fv, dG_V, s_mut, ddG
+
+    
+    if fit == 1:
+        dG_V=dG_i+ddG
+        wv=1/(1+np.exp(dG_V))
+        wi=1/(1+np.exp(dG_i))
+
+        s_mut=np.log(wv)-np.log(wi)
+
+        if N_eff > 10:
+            scale=N_eff/30
+            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)*scale
+
+        else:
+            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)
+
+        return fv, dG_V, s_mut, ddG
     
     else:
         
-        wi=(1+np.exp(dG_i))**-1
+        wi=1/(1+np.exp(dG_i))
         c=10/N_eff
         dw=rd.uniform(-0.5,0.5)*c
         wv=wi+dw
@@ -265,8 +346,6 @@ def calc_Pfix(dG_i, ddG, N_eff, fit):
 def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
 
     #user defined initial variables from input
-    #N_eff=1000000
-    #exp_mut=100000
     N_eff=Neff
     fit=fit
     seq=seq
@@ -284,10 +363,15 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
     rd.seed(seed)
     
     #create a random sequence if you want to
-    if seq != 1:
+    if seq == 0:
         rd_seq=gen_rd_seq(seq_len)
         wt_seq=rd_seq
-    
+
+    #create a coding sequence if you want to
+    elif seq == 2:
+        cd_seq=get_DNA_CDS(wt_seq)
+        wt_seq=cd_seq
+
     #get the tree to sim evolution along
     sim_tree=dp.Tree.get(path=tree,
                         schema="newick",
@@ -330,7 +414,16 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
             exp_mut=int(x[i].edge_length*len(wt_seq))
             tmp_dGs=[]
 
-            tmp_seq=list(aln.get(node.taxon.label))
+            if seq == 2:
+                tmp_seq=aln.get(node.taxon.label)
+                new_tmp=[]
+                for j in range(0, len(tmp_seq), 3):
+                    new_tmp.append(tmp_seq[j:j+3])
+                tmp_seq=new_tmp
+                
+            else:
+                tmp_seq=list(aln.get(node.taxon.label))
+
             dG_i=seq_dGs.get(node.taxon.label)
 
             if x[i].taxon.label not in aln:
@@ -344,12 +437,8 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
                 
                 while m < exp_mut:
                     
-                    ddG, wt_id, var_id, aa_mut_num, site_mut=calc_ddG(tmp_seq, lookup_table, res_nums, AA_miya)
-                    
-                    if fit != 0:
-                        fv, dG_V, s_mut=calc_Pfix(dG_i, ddG, N_eff, fit)
-                    else:
-                        fv, dG_V, s_mut, ddG=calc_Pfix(dG_i, ddG, N_eff, fit)
+                    ddG, wt_id, var_id, aa_mut_num, site_mut, mut_cd=calc_ddG(tmp_seq, lookup_table, res_nums, AA_miya, seq)
+                    fv, dG_V, s_mut, ddG=calc_Pfix(dG_i, ddG, N_eff, fit)
 
                     bf_dGs.append(dG_V)
                     bf_ddG.append(ddG)
@@ -357,7 +446,11 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
                     if dice < fv:
                         mut_mat[wt_id][var_id]+=1
                         dG_i=dG_V
-                        tmp_seq[site_mut]=AA_miya[aa_mut_num]
+                        #if codon seq, sub codon, else sub in amino acid
+                        if seq == 2:
+                            tmp_seq[site_mut]=mut_cd
+                        else:
+                            tmp_seq[site_mut]=AA_miya[aa_mut_num] 
                         af_probs.append(dice)
                         af_prob_of_fix.append(fv)
                         af_slxns.append(s_mut)
@@ -365,10 +458,8 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
                         af_ddGs.append(ddG)
                         m+=1
                     else:
-                        #pass
                         dG_i=dG_i
                         tmp_dGs.append(dG_i)
-                        #m+=1
                 aln[x[i].taxon.label]="".join(tmp_seq)
 
             else:
@@ -376,10 +467,20 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
 
             seq_dGs[x[i].taxon.label]=tmp_dGs[-1]
             af_dGs.append(tmp_dGs)
-            
-    return m, aln, af_slxns, af_probs, af_prob_of_fix, af_dGs, af_ddGs, mut_mat, bf_dGs, bf_ddG
+           
+    out_tree=sim_tree.as_string('newick')
+
+    return m, aln, af_slxns, af_probs, af_prob_of_fix, af_dGs, af_ddGs, mut_mat, bf_dGs, bf_ddG, out_tree
 
 #################################################################################################################################
+#write the tree as a text file
+def write_tree(tree, Neff, pdb, direct, add):
+    
+    title=pdb+'_Neff_'+str(Neff)+'_outtree_'+add+'.txt'
+    with open(os.path.join(direct,title), 'w+') as outfile:
+        outfile.write(tree)
+        outfile.close()
+
 #write two alignments, one for the ancestors and one for the extant sequences
 
 def write_aln(aln, Neff, pdb, direct, add):
@@ -446,7 +547,14 @@ def plt_slxn_pfix(s, p, pfix, direct, Neff, pdb, add):
               )
 
     title=pdb+'_Neff_'+str(Neff)+'_slxn_probs_fix_'+add+'.png'
-    plt.savefig(os.path.join(direct,title), bbox_inches='tight', pad_inches=0.3, dpi=300)
+    plt.savefig(os.path.join(direct,title), bbox_inches='tight', pad_inches=0.3, dpi=300) 
+    
+    title2=pdb+'_Neff_'+str(Neff)+'_slxn_probs_fix_'+add+'.txt'
+    with open(os.path.join(direct,title2), 'w+') as outfile:
+        outfile.write('{0}            {1}           {2}\n'.format("slxn","probs","pfix"))
+        for i in range(len(s)):
+            outfile.write("%4.4E\t%4.4E\t%4.4E\n"%(s[i],p[i],pfix[i]))
+        outfile.close()
 
 #################################################################################################################################
 #plt the dG of protein mutants before selection occurs
@@ -472,6 +580,7 @@ def plt_dG_b4_slxn(pdb, Neff, b4_dG, direct, add):
 
     title=pdb+'_Neff_'+str(Neff)+'_b4_dGs_'+add+'.png'
     plt.savefig(os.path.join(direct,title), bbox_inches='tight', pad_inches=0.3, dpi=300)
+
 
 #################################################################################################################################
 #plt the dG of protein mutants after selection occurs
@@ -582,26 +691,16 @@ miyazawa = [[-1.06,0.19,-0.23,0.16,-0.08,0.06,0.08,0.04,0.00,-0.08,0.19,-0.02,0.
             [0.71,0.00,0.44,0.36,0.19,0.44,0.22,-0.21,0.14,0.11,-0.09,-0.13,-0.38,-0.33,-0.97,-0.76,0.22,0.75,0.25,0.11],
             [0.00,-0.34,0.20,0.25,0.42,0.09,-0.28,-0.33,0.10,-0.11,-0.07,0.01,-0.42,-0.18,-0.10,0.04,-0.21,-0.38,0.11,0.26]]
 
-miyazawa_5 =[[0.00, 0.70, 0.52, 0.80, 0.59, 0.73, 0.67, 0.60, 0.59, 0.64, 0.70, 0.61, 0.43, 0.93, 1.23, 0.54, 0.48, 0.71, 1.11, 0.40],
-             [0.70, 0.00, -0.22, -0.18, -0.09, -0.02, -0.63, -0.12, 0.29, 0.37, 0.16, 0.22, 0.30, 0.33, 0.43, 0.61, 1.11, 0.23, -0.15, -0.49],
-             [0.52, -0.22, 0.00, 0.14, 0.06, 0.14, 0.12, 0.25, 0.31, 0.79, 0.52, 0.61, 0.56, 0.67, 0.50, 0.59, 0.21, 0.58, 0.53, 0.29],
-             [0.80, -0.18, 0.14, 0.00, -0.16, 0.00, 0.19, 0.25, -0.05, 0.55, 0.23, 0.42, 0.33, 0.91, 0.47, 0.68, 0.75, 0.48, 0.34, 0.23],
-             [0.59, -0.09, 0.06, -0.16, 0.00, -0.01, 0.11, 0.41, 0.19, 0.56, 0.33, 0.48, 0.25, 0.70, 0.58, 0.79, 0.44, 0.43, 0.20, 0.42],
-             [0.73, -0.02, 0.14, 0.00, -0.01, 0.00, 0.13, 0.19, 0.10, 0.50, 0.38, 0.42, 0.24, 0.91, 0.49, 0.71, 0.48, 0.38, 0.45, 0.10],
-             [0.67, -0.63, 0.12, 0.19, 0.11, 0.13, 0.00, 0.04, 0.03, 0.43, 0.26, 0.50, -0.01, 0.39, 0.36, 0.28, 0.08, -0.16, 0.15, -0.36],
-             [0.60, -0.12, 0.25, 0.25, 0.41, 0.19, 0.04, 0.00, 0.18, 0.36, 0.15, 0.21, -0.31, 0.10, -0.06, 0.01, -0.17, -0.28, -0.31, -0.43],
-             [0.59, 0.29, 0.31, -0.05, 0.19, 0.10, 0.03, 0.18, 0.00, 0.19, -0.04, 0.11, 0.00, 0.61, 0.34, 0.16, 0.55, 0.44, 0.08, 0.03],
-             [0.64, 0.37, 0.79, 0.55, 0.56, 0.50, 0.43, 0.36, 0.19, 0.00, -0.09, 0.13, -0.01, 0.32, 0.45, -0.05, 0.53, 0.10, 0.18, -0.04],
-             [0.70, 0.16, 0.52, 0.23, 0.33, 0.38, 0.26, 0.15, -0.04, -0.09, 0.00, 0.00, -0.29, 0.14, 0.00, -0.32, -0.06, -0.42, -0.23, -0.21],
-             [0.61, 0.22, 0.61, 0.42, 0.48, 0.42, 0.50, 0.21, 0.11, 0.13, 0.00, 0.00, -0.18, 0.23, -0.15, -0.23, 0.19, 0.21, -0.15, -0.02],
-             [0.43, 0.30, 0.56, 0.33, 0.25, 0.24, -0.01, -0.31, 0.00, -0.01, -0.29, -0.18, 0.00, -0.13, -0.30, -0.33, -0.02, -0.72, -0.65, -0.69],
-             [0.93, 0.33, 0.67, 0.91, 0.70, 0.91, 0.39, 0.10, 0.61, 0.32, 0.14, 0.23, -0.13, 0.00, -0.04, -0.06, 0.18, 0.07, -0.19, -0.04],
-             [1.23, 0.43, 0.50, 0.47, 0.58, 0.49, 0.36, -0.06, 0.34, 0.45, 0.00, -0.15, -0.30, -0.04, 0.00, -0.16, -0.29, -0.79, -1.08, -0.22],
-             [0.54, 0.61, 0.59, 0.68, 0.79, 0.71, 0.28, 0.01, 0.16, -0.05, -0.32, -0.23, -0.33, -0.06, -0.16, 0.00, -0.26, -0.80, -0.90, -0.11],
-             [0.48, 1.11, 0.21, 0.75, 0.44, 0.48, 0.08, -0.17, 0.55, 0.53, -0.06, 0.19, -0.02, 0.18, -0.29, -0.26, 0.00, -0.04, 0.24, -0.19],
-             [0.71, 0.23, 0.58, 0.48, 0.43, 0.38, -0.16, -0.28, 0.44, 0.10, -0.42, 0.21, -0.72, 0.07, -0.79, -0.80, -0.04, 0.00, 0.57, -0.56],
-             [1.11, -0.15, 0.53, 0.34, 0.20, 0.45, 0.15, -0.31, 0.08, 0.18, -0.23, -0.15, -0.65, -0.19, -1.08, -0.90, 0.24, 0.57, 0.00, -0.15],
-             [0.40, -0.49, 0.29, 0.23, 0.42, 0.10, -0.36, -0.43, 0.03, -0.04, -0.21, -0.02, -0.69, -0.04, -0.22, -0.11, -0.19, -0.56, -0.15, 0.00]]
+DNA = ['A', 'C', 'T', 'G']
+
+CODON = {'F':['TTT','TTC'], 'L':['TTA','TTG','CTT','CTC','CTA','CTG'],
+         'I':['ATT','ATC','ATA'], 'M':['ATG'], 'V':['GTT','GTC','GTA','GTG'],
+         'S':['TCT','TCC','TCA','TCG','AGT','AGC'], 'P':['CCT','CCC','CCA','CCG'],
+         'T':['ACT','ACC','ACA','ACG'], 'A':['GCT','GCC','GCA','GCG'],'Y':['TAT','TAC'], 
+         'stop':['TAA','TAG','TGA'], 'H':['CAT','CAC'], 'Q':['CAA','CAG'], 'N':['AAT','AAC'], 
+         'K':['AAA','AAG'], 'D':['GAT','GAC'], 'E':['GAA','GAG'], 'C':['TGT','TGC'], 'W':['TGG'], 
+         'R':['CGT','CGC','CGA','CGG','AGA','AGG'],'G':['GGT','GGC','GGA','GGG']
+         }
 
 #################################################################################################################################            
 
@@ -616,11 +715,13 @@ parser.add_argument("-D", "--direct", default=os.getcwd(),
 parser.add_argument("-N", "--Neff", default=1000000,
                     help="effective population size, default=1000000")
 parser.add_argument("-F", "--fitness", default=1,
-                    help="if 0, fitness determined by res contact potentials,\
-and if 1, then fitness sampled directly independent of contact potentials, default=1")
+                    help="if 0 then fitness determined by res contact potentials,\
+if 1 then fitness determined from  contact potentials,\
+and if 2 then fitness determined by sampling ddG, default=1")
 parser.add_argument("-S", "--sequence", default=1,
-                    help="if 0, then seq is pdb seq,\
-and if 1, then the seq is randomly generated, default=1")
+                    help="if 0 then random seq is seeded at root of tree,\
+if 1 then the pdb seq is seeded at root of tree,\
+and if 2 then corresponding codon sequence is seeded at root of tree, default=1")
 parser.add_argument("-A", "--addendum", type=str, default='',
                     help="extra identifier, like gene, prot fam, tree, etc...")
 
@@ -645,9 +746,10 @@ def main():
     #perform evolution
     seq, res, pdb_coord = parse_pdb_file(args.pdb_file)
     tree_path=os.path.join(args.direct,args.tree)
-    mut, aln, slxns, probs, prob_of_fix, dGs, ddGs, mut_mat, b4_dG, b4_ddG=EvoSim(seq, res, pdb_coord, tree_path, args.Neff, args.sequence, args.fitness)
+    mut, aln, slxns, probs, prob_of_fix, dGs, ddGs, mut_mat, b4_dG, b4_ddG, tree = EvoSim(seq, res, pdb_coord, tree_path, args.Neff, args.sequence, args.fitness)
 
     #make some alnmts & plts
+    write_tree(tree, args.Neff, args.pdb_file, args.direct, args.addendum) 
     write_aln(aln, args.Neff, args.pdb_file, args.direct, args.addendum)
     plt_slxn_pfix(slxns, probs, prob_of_fix, args.direct, args.Neff, args.pdb_file, args.addendum)
     plt_dG_b4_slxn(args.pdb_file, args.Neff, b4_dG, args.direct, args.addendum)
@@ -657,4 +759,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
