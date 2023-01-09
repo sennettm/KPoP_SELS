@@ -284,7 +284,7 @@ def calc_Pfix(dG_i, ddG, N_eff, fit):
     
     #calculate the probability of fixation  
     if fit == 2:
-        mu=0.01
+        mu=1
         sigma=1.4
         ddG=rd.gauss(mu, sigma)
         
