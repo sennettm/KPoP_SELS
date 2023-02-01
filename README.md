@@ -1,5 +1,5 @@
-# KPOP_SELS
-Kimura POpulation and Protein Structures Evolve via Linked Sites
+# KPOP_SELS *in beta
+Kimura POpulation and Protein Structures Evolve via Linked Sites 
 
 **What is KPOP SELS?**
 
