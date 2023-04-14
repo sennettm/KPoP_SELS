@@ -29,10 +29,9 @@ However, we are exploring many questions.
 
 (1) How do different parameters like effective population size, protein structure, and tree topology affect the identity of the sequences we observe, those sequence's stability, and the types of accepted mutations over the course of evolution. All of these observations are the basis of empirical models of evolution that are standard in phylogenetics. 
 
+![dG_Trace_100000_mut](https://user-images.githubusercontent.com/111892527/232118585-7b38ed23-80f9-49ff-83c3-6942221a1759.svg)
 
-![4ND5_Neff_1000000_Emut_100000_ind_dGs_miyazawa](https://user-images.githubusercontent.com/111892527/206775725-55eb2415-4d0e-4a6b-a8d0-78131786e075.png)
-
-We can track the dG of each protein as it evolves along some branch. For the above figure, we arbitrarily track the dG for 100,000 proposed mutations and only a fraction of which actually fix into the population. We can see that sequence A gets trapped in a local minima between proposed mutations 60,000-80,000.
+We can track the dG of each protein as it evolves along some branch. For the above figure, we arbitrarily track the dG for 100,000 proposed mutations and only a fraction of which actually fix into the population. We can see that sequence A gets reaches equilibrium after 70,000 proposed mutations.
 
 (2) What assumptions limit our empirical models of evolution and how can those empirical models be improved?
 
