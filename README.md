@@ -1,7 +1,7 @@
 # KPOP_SELS *in beta
 Kimura POpulation and Protein Structures Evolve via Linked Sites 
 
-Currently, sampling from a fitness distribution or ddG distribution works. Calculating the point mutations using the Miyazawa & Jernigan 1985 Table 6 contact potential still requires work. Therefore, the final extant sequences contains substitutions that will not make any biophysical sense.
+You can calculate the change in protein stability from point mutations using the Miyazawa & Jernigan 1985 Table 6 contact potential. However, a burn-in is required so the ancestor at the root of the tree is already at equilibrium.
 
 **What is KPOP SELS?**
 
