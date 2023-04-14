@@ -52,10 +52,16 @@ def parse_pdb_file(pdb):
             chain.append(i)
     pdb_2d_arr_A=[]        
     for line in pdb_2d_arr:
-        if line[4] != chain[0] or line[2] != 'CA':
-            pass
+        if line[3] != 'GLY':
+            if line[4] != chain[0] or line[2] != 'CB':
+                pass
+            else:
+                pdb_2d_arr_A.append(list(line))
         else:
-            pdb_2d_arr_A.append(list(line))
+            if line[4] != chain[0] or line[2] != 'CA':
+                pass
+            else:
+                pdb_2d_arr_A.append(list(line))
     
     pdb_2d_arr_A=np.reshape(pdb_2d_arr_A, (-1,9))
     pdb_2d_arr_A=np.char.strip(pdb_2d_arr_A)
@@ -94,6 +100,30 @@ def parse_pdb_file(pdb):
 
 #################################################################################################################################
 
+def get_rdn_coil_pdbs():
+    rc_pdb=['6BQV', '6R8B', '6WBG', '7M3F', '6X2K', '6VV5', '7VHM', '6S6L', '6YJ6', '8DG4',
+        '7P5C', '7DFV', '5IS0', '7W01', '6UX4', '7OQH', '7JZ3', '6U88', '7R91', '7V3U',
+        '7QKW', '7PBD', '7WJO', '7ZZ2', '7WIU', '6VZ1', '7KF6', '6UW4', '7XNR', '7RHL',
+        '6ZP2', '7UNM', '7UNQ', '6PM2', '7JQ9', '6WXI', '7N6B', '7WZ2', '7WUB', '6OG1',
+        '6U5N', '6M15', '7RJT', '7S89', '7WS8', '6VXN', '7LH2', '5IRZ', '7UV0', '7T4N',
+        '7EZ0', '7B5P', '6NPL']
+
+    #seq, res, pdb_coord = parse_pdb_file(pdb)
+
+    rc_pdb_coord=[]
+    rc_res=[]
+    for rc in rc_pdb:
+        try:
+            tmp_seq, tmp_res, tmp_pdb_coord = parse_pdb_file(rc)
+            rc_pdb_coord.append(tmp_pdb_coord)
+            rc_res.append(tmp_res)
+        except:
+            pass
+
+    return rc_res, rc_pdb_coord
+
+#################################################################################################################################
+
 #create a random sequence
 def gen_rd_seq(seq_len):
     
@@ -106,7 +136,7 @@ def gen_rd_seq(seq_len):
 #################################################################################################################################
 
 #grab list of sites that are near residue of interest in a single chain
-def nn_sites(pdb_2d_arr):
+def nn_sites(pdb_2d_arr, seq_len):
 
     pdb_2d_arr=pdb_2d_arr
     
@@ -116,8 +146,8 @@ def nn_sites(pdb_2d_arr):
     for line in pdb_2d_arr:
         site_coord=np.zeros((1,3))
     #get the ref residue coord
-        if line[5] not in site:
-            site.append(line[5])
+        
+        if line[5] not in site and int(line[5]) < seq_len:
             site_coord[0,0]=float(line[6])
             site_coord[0,1]=float(line[7])
             site_coord[0,2]=float(line[8])
@@ -126,26 +156,38 @@ def nn_sites(pdb_2d_arr):
             tmp_nn_sites=[]    
             for new_line in pdb_2d_arr:
                 nn_coord=np.zeros((1,3))
-                if new_line[5] != line[5]:
-
+                if new_line[5] != line[5] and int(new_line[5]) < seq_len:
+                    
                     nn_coord[0,0]=float(new_line[6])
                     nn_coord[0,1]=float(new_line[7])
                     nn_coord[0,2]=float(new_line[8])
     #calc dist bw sites
                     dist=np.sum((site_coord-nn_coord)**2,1)**0.5
                     if dist < 7:
-                        tmp_nn_sites.append(new_line[5])
+                        if int(line[5]) < int(new_line[5]):
+                            site.append(line[5])
+                            nn_site.append(new_line[5])
+                        else:
+                            site.append(new_line[5])
+                            nn_site.append(line[5])
                     else:
                         pass
                 else:
                     pass
-            nn_site.append(tmp_nn_sites)
         else:
             pass
 
-    lookup_table=dict(zip(site,nn_site))
+    lookup_table=list(zip(site,nn_site))
+    nr_lookup_table=[]
+    for item in lookup_table:
+        if item not in nr_lookup_table:
+            nr_lookup_table.append(item)
+        
+        else:
+            pass
+        
     
-    return lookup_table            
+    return nr_lookup_table     
 
 #################################################################################################################################
 
@@ -200,94 +242,125 @@ def get_cdn_key(val):
             if val == value:
                 return keys
         
+def cdn_2_aa(cdn_seq):
+    #create an aa seq for later
+    tmp_seq=[]
+    for cdn in cdn_seq:
+        aa = get_cdn_key(cdn)
+        tmp_seq.append(aa)
+
+    return tmp_seq
 
 #################################################################################################################################
 
-def calc_ddG(tmp_seq, lookup_table, res_nums, AA_miya, seq):
+def calc_G_F(tmp_seq, lookup_table, res_nums, AA_miya):
 
-    #calculate the ddG of a mutation
-    
+
     res_dct=dict(zip(res_nums, range(len(res_nums))))
-    site_mut=rd.sample(range(1,len(tmp_seq)),1)
-    
-    if seq == 2:
-        cdn_seq=tmp_seq
-        #wt codon identity, 3L
-        wt_cd=cdn_seq[site_mut[0]]
+
+    #calculate GNS, native state free energy, for some struct/seq
+    fold_GNS=[]
+    for res_pair in lookup_table:
+        #convert to a int
+        one=res_pair[0]
+        two=res_pair[1]
+        #find int in dict to get linear seq number
+        aa_one=res_dct.get(one)
+        aa_two=res_dct.get(two)
+        #identify aa from linear seq
+        seq_res_one=tmp_seq[aa_one]
+        seq_res_two=tmp_seq[aa_two]
+        #calc CP between two residues
+        miya_id_one=AA_miya_dct.get(seq_res_one)
+        miya_id_two=AA_miya_dct.get(seq_res_two)
+        fold_GNS.append(miyazawa[miya_id_one][miya_id_two])
+
+    tot_fold_GNS=sum(fold_GNS)
+
+    return tot_fold_GNS
+
+#################################################################################################################################
+
+def intro_mut(cdn_seq):
+
+    #position in seq to mutate
+
+    site_mut=rd.sample(range(1,len(cdn_seq)),1)
+    wt_cd=cdn_seq[site_mut[0]]
+
+    roll = rd.uniform(0,1)
+    if roll < 0.9:
         #pos in wt codon to be mutated
         pos=rd.sample(range(3), 1)
         cd_pos=pos[0]
-        #sample nuc to mutate
-        mut_num_lst=rd.sample(range(len(DNA)), 4)
-        #make sure nuc actually would change
+        #ACTG
+        if wt_cd[cd_pos] == 'A':
+            mut_num_lst=rd.sample([1,2,3,3], 4)
+        elif wt_cd[cd_pos] == 'C':
+            mut_num_lst=rd.sample([0,2,2,3], 4)
+        elif wt_cd[cd_pos] == 'T':
+            mut_num_lst=rd.sample([0,1,1,3], 4)
+        else:
+            mut_num_lst=rd.sample([0,0,1,2], 4)
+
+        #sampleing from nuc dist with equal probs
+
+        #propose mutation
         for mut_num in mut_num_lst:
-            #change nuc in codon
             mut_cd=list(wt_cd)
             mut_cd[cd_pos]=DNA[mut_num]
             mut_cd=''.join(mut_cd)
-            #if no mut or mut to stop then pass, else loop is over
             if DNA[mut_num] == wt_cd[cd_pos]:
                 pass
             elif get_cdn_key(mut_cd) == 'stop':
                 pass
             else:
                 break
-        
-        var_res=get_cdn_key(mut_cd)
-        wt_res=get_cdn_key(wt_cd)
-        
-        #create an aa seq for later
-        tmp_seq=[]
-        for cdn in cdn_seq:
-            aa = get_cdn_key(cdn)
-            tmp_seq.append(aa)
-        
-                
-    if seq < 2:    
-        wt_res=tmp_seq[site_mut[0]]
-        mut_num_lst=rd.sample(range(len(AA_miya)), 20)
 
-        #intro mutation according to poisson process for aa
-        for mut_num in mut_num_lst:
-            if AA_miya[mut_num] == wt_res:
+        var_cdn_seq=list('X')*len(cdn_seq)
+
+        for cdn in range(len(cdn_seq)):
+            if cdn != site_mut[0]:
+                var_cdn_seq[cdn]=cdn_seq[cdn]
+            else:
+                var_cdn_seq[cdn]=mut_cd
+    else:
+        cdn_lst=[]
+        for val in CODON.values():
+            for v in val:
+                cdn_lst.append(v)
+        cdn_smp=rd.sample(cdn_lst, len(cdn_lst))
+
+        #propose mutation
+        for c in cdn_smp:
+            if c == wt_cd:
+                pass
+            elif get_cdn_key(c) == 'stop':
                 pass
             else:
                 break
+        mut_cd = c
 
-        var_res=AA_miya[mut_num]
-        #dummy codon
-        mut_cd='NNN'
-    
-    struc_site_mut=res_nums[site_mut[0]]
-    nn_res_3d=lookup_table.get(struc_site_mut)
+        var_cdn_seq=list('X')*len(cdn_seq)
 
-    
-    cp_wt=[]
-    cp_var=[]
-    
-    for res in nn_res_3d:
-        prim_site=res_dct.get(res)
-        prim_aa=tmp_seq[prim_site]
-        nn_id=AA_miya_dct.get(prim_aa)
-        wt_id=AA_miya_dct.get(wt_res)
-        var_id=AA_miya_dct.get(var_res)
-        cp_wt.append(miyazawa[wt_id][nn_id])
-        cp_var.append(miyazawa[var_id][nn_id])
+        for cdn in range(len(cdn_seq)):
+            if cdn != site_mut[0]:
+                var_cdn_seq[cdn]=cdn_seq[cdn]
+            else:
+                var_cdn_seq[cdn]=mut_cd
 
-    ddG=sum(cp_var)-sum(cp_wt)
 
-    return ddG, wt_id, var_id, mut_num, site_mut[0], mut_cd
-        
+    return wt_cd, mut_cd, site_mut[0], var_cdn_seq
+
 #################################################################################################################################
 
-def calc_Pfix(dG_i, ddG, N_eff, fit):
-    
-    #calculate the probability of fixation  
+def calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, rc_res_dct, N_eff, m, fit):
+
     if fit == 2:
-        mu=1
+        mu=0.01
         sigma=1.4
         ddG=rd.gauss(mu, sigma)
-        
+
         dG_V=dG_i+ddG
         wv=1/(1+np.exp(dG_V))
         wi=1/(1+np.exp(dG_i))
@@ -303,32 +376,14 @@ def calc_Pfix(dG_i, ddG, N_eff, fit):
 
         return fv, dG_V, s_mut, ddG
 
-    
     if fit == 1:
-        dG_V=dG_i+ddG
-        wv=1/(1+np.exp(dG_V))
-        wi=1/(1+np.exp(dG_i))
-
-        s_mut=np.log(wv)-np.log(wi)
-
-        if N_eff > 10:
-            scale=N_eff/30
-            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)*scale
-
-        else:
-            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)
-
-        return fv, dG_V, s_mut, ddG
-    
-    else:
-        
         wi=1/(1+np.exp(dG_i))
         c=10/N_eff
         dw=rd.uniform(-0.5,0.5)*c
         wv=wi+dw
         if wv >= 1.0:
             wv=2.0-wv
-            
+
         s_mut=np.log(wv)-np.log(wi)
         if N_eff > 10:
             scale=N_eff/100
@@ -341,9 +396,58 @@ def calc_Pfix(dG_i, ddG, N_eff, fit):
 
         return fv, dG_V, s_mut, ddG
 
+    else:
+
+        seq_len=len(wt_aa_seq)
+        #calc the native state G for the initial seq/struct
+        G_i=calc_G_F(wt_aa_seq, lookup_table, res_nums, AA_miya)
+        #calc the average random coil G for the initial seq/struct
+        G_i_rc=[]
+        for j in range(len(rc_lookup_tables)):
+            G_i_tmp=calc_G_F(wt_aa_seq, rc_lookup_tables[j], rc_res_dct[j], AA_miya)
+            G_i_rc.append(G_i_tmp)
+        avg_G_i_rc=np.mean(G_i_rc)
+        std_G_i_rc=np.std(G_i_rc)
+        RT=0.593
+        dG_i=G_i+RT*np.log(10.**160)+((std_G_i_rc**2)-(2.*RT*avg_G_i_rc))/(2.*RT)
+        #calc the native state G for the final seq/struct
+        G_v=calc_G_F(var_aa_seq, lookup_table, res_nums, AA_miya)
+        #calc the average random coil G for the final seq/struct
+        G_v_rc=[]
+        for j in range(len(rc_lookup_tables)):
+            G_v_tmp=calc_G_F(var_aa_seq, rc_lookup_tables[j], rc_res_dct[j], AA_miya)
+            G_v_rc.append(G_v_tmp)
+        avg_G_v_rc=np.mean(G_v_rc)
+        std_G_v_rc=np.std(G_v_rc)
+        dG_v=G_v+RT*np.log(10.**160)+((std_G_v_rc**2)-(2.*RT*avg_G_v_rc))/(2.*RT)
+    
+        ddG=dG_v-dG_i
+        wv=np.longdouble(1)/(np.longdouble(1)+np.exp(dG_v/RT))
+        wi=np.longdouble(1)/(np.longdouble(1)+np.exp(dG_i/RT))
+    
+        s_mut=(wv-wi)/wi
+    
+        if m > 100000:
+            scale = N_eff/10
+        else:
+            scale = N_eff/N_eff
+    
+        if s_mut == 0:
+            fv=1/N_eff*scale
+        else:
+            fv=np.expm1(-2*s_mut)/np.expm1(-4*N_eff*s_mut)*scale
+
+        return fv, dG_i, G_i, avg_G_i_rc, std_G_i_rc, dG_v, G_v, avg_G_v_rc, std_G_v_rc, ddG, s_mut
+
 #################################################################################################################################
 
-def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
+        
+#################################################################################################################################
+
+
+#################################################################################################################################
+
+def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, seq, fit):
 
     #user defined initial variables from input
     N_eff=Neff
@@ -355,7 +459,16 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
     res_dct=dict(zip(res_nums, range(len(res_nums))))
     seq_len=len(res_nums)
     dG_WT=(-1*np.log(N_eff)-0.57)/1
-    lookup_table=nn_sites(pdb_2d_arr)
+    lookup_table=nn_sites(pdb_2d_arr, seq_len)
+    rc_res_dct=[]
+    for rc_res in rc_res_lst:
+        tmp_res_dct=dict(zip(rc_res[0:seq_len], range(0,seq_len)))
+        rc_res_dct.append(tmp_res_dct)
+
+    rc_lookup_tables=[]
+    for rc in rc_pdb_2d_arr:
+        tmp_LT=nn_sites(rc, seq_len)
+        rc_lookup_tables.append(tmp_LT)
 
     #sample a random number and then throw into seed so we can track
     seed=rd.randint(0,100000000)
@@ -366,11 +479,11 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
     if seq == 0:
         rd_seq=gen_rd_seq(seq_len)
         wt_seq=rd_seq
+        cd_seq=get_DNA_CDS(wt_seq)
 
     #create a coding sequence if you want to
-    elif seq == 2:
+    else:
         cd_seq=get_DNA_CDS(wt_seq)
-        wt_seq=cd_seq
 
     #get the tree to sim evolution along
     sim_tree=dp.Tree.get(path=tree,
@@ -395,6 +508,10 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
     mut_mat=np.zeros((20,20))
     bf_dGs=[]
     bf_ddG=[]
+    af_G=[]
+    af_aG_rc=[]
+    af_sG_rc=[]
+    eq_res=[]
 
     #traverse the tree and sim evo
     dG_i=dG_WT
@@ -403,7 +520,7 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
 
         if node.taxon.label not in aln:
 
-            aln[node.taxon.label]="".join(wt_seq)
+            aln[node.taxon.label]="".join(cd_seq)
             seq_dGs[node.taxon.label]=dG_i
             
         x=node.child_nodes()
@@ -414,15 +531,11 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
             exp_mut=int(x[i].edge_length*len(wt_seq))
             tmp_dGs=[]
 
-            if seq == 2:
-                tmp_seq=aln.get(node.taxon.label)
-                new_tmp=[]
-                for j in range(0, len(tmp_seq), 3):
-                    new_tmp.append(tmp_seq[j:j+3])
-                tmp_seq=new_tmp
-                
-            else:
-                tmp_seq=list(aln.get(node.taxon.label))
+            tmp_seq=aln.get(node.taxon.label)
+            new_tmp=[]
+            for j in range(0, len(tmp_seq), 3):
+                new_tmp.append(tmp_seq[j:j+3])
+            tmp_seq=new_tmp
 
             dG_i=seq_dGs.get(node.taxon.label)
 
@@ -437,29 +550,76 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
                 
                 while m < exp_mut:
                     
-                    ddG, wt_id, var_id, aa_mut_num, site_mut, mut_cd=calc_ddG(tmp_seq, lookup_table, res_nums, AA_miya, seq)
-                    fv, dG_V, s_mut, ddG=calc_Pfix(dG_i, ddG, N_eff, fit)
+                    #intro mut and convert codon seq to aa seq
+                    wt_cdn_seq=tmp_seq
+                    wt_aa_seq=cdn_2_aa(tmp_seq)
+                    wt_cdn, var_cdn, site, var_cdn_seq=intro_mut(wt_cdn_seq)
+                    var_aa_seq=cdn_2_aa(var_cdn_seq)
+                    wt_aa=get_cdn_key(wt_cdn)
+                    var_aa=get_cdn_key(var_cdn)
 
-                    bf_dGs.append(dG_V)
-                    bf_ddG.append(ddG)
-                    dice=rd.uniform(0,1)
-                    if dice < fv:
-                        mut_mat[wt_id][var_id]+=1
-                        dG_i=dG_V
-                        #if codon seq, sub codon, else sub in amino acid
-                        if seq == 2:
-                            tmp_seq[site_mut]=mut_cd
+                    if var_aa == wt_aa and m > 0:
+
+                        if m > 100000:
+                            scale = N_eff/10
                         else:
-                            tmp_seq[site_mut]=AA_miya[aa_mut_num] 
-                        af_probs.append(dice)
-                        af_prob_of_fix.append(fv)
-                        af_slxns.append(s_mut)
-                        tmp_dGs.append(dG_i)
-                        af_ddGs.append(ddG)
-                        m+=1
+                            scale = N_eff/N_eff
+                        fv=1/N_eff*scale
+                        ddG=np.longdouble(0.0)
+                        s_mut=np.longdouble(0.0)
+                        dG_i=tmp_dGs[-1]
+                        dG_v=tmp_dGs[-1]
+
                     else:
+                        if fit == 0:
+                            fv, dG_i, G_i, avg_G_i_rc, std_G_i_rc, dG_v, G_v, avg_G_v_rc, std_G_v_rc, ddG, s_mut = calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, rc_res_dct, N_eff, m, fit)
+                        else:
+                            ddG=1.
+                            fv, dG_V, s_mut, ddG=calc_Pfix(dG_i, ddG, N_eff, fit)
+                    bf_dGs.append(np.longdouble(dG_v))
+                    bf_ddG.append(np.longdouble(ddG))
+                    dice=rd.uniform(0,1)
+
+                    if dice < fv:
+
+                        G_i=G_v
+                        avg_G_i_rc=avg_G_v_rc
+                        std_G_i_rc=std_G_v_rc
+                        af_G.append(G_i)
+                        af_aG_rc.append(avg_G_i_rc)
+                        af_sG_rc.append(std_G_i_rc)
+                        wt_id=AA_miya_dct.get(wt_aa)
+                        var_id=AA_miya_dct.get(var_aa)
+                        #only look at the ones after equilibrium
+                        if m > 100000:
+                            mut_mat[wt_id][var_id]+=1
+                            eq_res.append(var_aa)
+                        dG_i=dG_v
+                        tmp_seq=var_cdn_seq
+                        af_probs.append(dice)
+                        af_prob_of_fix.append(np.longdouble(fv))
+                        af_slxns.append(np.longdouble(s_mut))
+                        tmp_dGs.append(np.longdouble(dG_i))
+                        af_ddGs.append(np.longdouble(ddG))
+
+                    else:
+                        pass
                         dG_i=dG_i
-                        tmp_dGs.append(dG_i)
+                        tmp_dGs.append(np.longdouble(dG_i))
+                        af_G.append(G_i)
+                        af_aG_rc.append(avg_G_i_rc)
+                        af_sG_rc.append(std_G_i_rc)
+                        if m > 100000:
+                            eq_res.append(wt_aa)
+
+                    if m%(10000) == 0:
+                        print(int(m/exp_mut*100), '% done')
+                    else:
+                        pass
+
+                    m+=1
+
+
                 aln[x[i].taxon.label]="".join(tmp_seq)
 
             else:
@@ -467,10 +627,10 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, tree, Neff, seq, fit):
 
             seq_dGs[x[i].taxon.label]=tmp_dGs[-1]
             af_dGs.append(tmp_dGs)
-           
-    out_tree=sim_tree.as_string('newick', unquoted_underscores=True)
 
-    return m, aln, af_slxns, af_probs, af_prob_of_fix, af_dGs, af_ddGs, mut_mat, bf_dGs, bf_ddG, out_tree
+    out_tree=sim_tree.as_string('newick')
+
+    return m, aln, af_slxns, af_probs, af_prob_of_fix, af_dGs, af_ddGs, mut_mat, eq_res, bf_dGs, bf_ddG, out_tree, af_G, af_aG_rc, af_sG_rc
 
 #################################################################################################################################
 #write the tree as a text file
@@ -561,7 +721,6 @@ def plt_slxn_pfix(s, p, pfix, direct, Neff, pdb, add):
     
 def plt_dG_b4_slxn(pdb, Neff, b4_dG, direct, add):
     
-    #plt.rc('font', family='Arial')
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -587,7 +746,6 @@ def plt_dG_b4_slxn(pdb, Neff, b4_dG, direct, add):
 
 def plt_dG_af_slxn(pdb, Neff, dGs, direct, add):
     
-    #plt.rc('font', family='Arial')
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -616,7 +774,6 @@ def plt_dG_af_slxn(pdb, Neff, dGs, direct, add):
 
 def plt_ddG_b4_slxn(pdb, Neff, b4_ddG, direct, add):
 
-    #plt.rc('font', family='Arial')
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -640,7 +797,6 @@ def plt_ddG_b4_slxn(pdb, Neff, b4_ddG, direct, add):
 
 def plt_ddG_af_slxn(pdb, Neff, af_ddG, direct, add):
 
-    #plt.rc('font', family='Arial')
     plt.rcParams.update({'font.size': 14})
 
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
@@ -702,6 +858,13 @@ CODON = {'F':['TTT','TTC'], 'L':['TTA','TTG','CTT','CTC','CTA','CTG'],
          'R':['CGT','CGC','CGA','CGG','AGA','AGG'],'G':['GGT','GGC','GGA','GGG']
          }
 
+RC_pdb = ['6BQV', '6R8B', '6WBG', '7M3F', '6X2K', '6VV5', '7VHM', '6S6L', '6YJ6', '8DG4', 
+          '7P5C', '7DFV', '5IS0', '7W01', '6UX4', '7OQH', '7JZ3', '6U88', '7R91', '7V3U', 
+          '7QKW', '7PBD', '7WJO', '7ZZ2', '7WIU', '6VZ1', '7KF6', '6UW4', '7XNR', '7RHL', 
+          '6ZP2', '7UNM', '7UNQ', '6PM2', '7JQ9', '6WXI', '7N6B', '7WZ2', '7WUB', '6OG1', 
+          '6U5N', '6M15', '7RJT', '7S89', '7WS8', '6VXN', '7LH2', '5IRZ', '7UV0', '7T4N', 
+          '7EZ0', '7B5P', '6NPL']
+
 #################################################################################################################################            
 
 #Argument Parser
@@ -714,13 +877,13 @@ parser.add_argument("-D", "--direct", default=os.getcwd(),
                     help="where to direct files, default cwd")
 parser.add_argument("-N", "--Neff", default=1000000,
                     help="effective population size, default=1000000")
-parser.add_argument("-F", "--fitness", default=1,
+parser.add_argument("-F", "--fitness", default=0,
                     help="if 0 then fitness determined by res contact potentials,\
-if 1 then fitness determined from  contact potentials,\
-and if 2 then fitness determined by sampling ddG, default=1")
+if 1 then fitness determined by sampling uniform fitness,\
+and if 2 then fitness determined by sampling ddG, default=0")
 parser.add_argument("-S", "--sequence", default=1,
-                    help="if 0 then random seq is seeded at root of tree,\
-if 1 then the pdb seq is seeded at root of tree,\
+                    help="if 0 then random AA seq is seeded at root of tree,\
+if 1 then the pdb AA seq is seeded at root of tree,\
 and if 2 then corresponding codon sequence is seeded at root of tree, default=1")
 parser.add_argument("-A", "--addendum", type=str, default='',
                     help="extra identifier, like gene, prot fam, tree, etc...")
@@ -745,9 +908,10 @@ args = parser.parse_args()
 def main():
     #perform evolution
     seq, res, pdb_coord = parse_pdb_file(args.pdb_file)
+    rc_res, rc_pdb_coord = get_rdn_coil_pdbs()    
     tree_path=os.path.join(args.direct,args.tree)
-    mut, aln, slxns, probs, prob_of_fix, dGs, ddGs, mut_mat, b4_dG, b4_ddG, tree = EvoSim(seq, res, pdb_coord, tree_path, args.Neff, args.sequence, args.fitness)
-
+    mut, aln, slxns, probs, prob_of_fix, dGs, ddGs, mut_mat, eq_res, b4_dG, b4_ddG, tree, af_G, af_aG_rc, af_sG_rc=EvoSim(seq, res, pdb_coord, rc_res, rc_pdb_coord, tree_path, args.Neff, args.sequence, args.fitness)
+    
     #make some alnmts & plts
     write_tree(tree, args.Neff, args.pdb_file, args.direct, args.addendum) 
     write_aln(aln, args.Neff, args.pdb_file, args.direct, args.addendum)
@@ -759,3 +923,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
