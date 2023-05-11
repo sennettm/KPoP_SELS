@@ -77,21 +77,31 @@ Usage
 
 Example
 ```
-./KPOP_SELS_v0.1.py -T tree_01.txt -P 4nd5
+./KPOP_SELS_v0.4.py -T tree_01.txt -P 4nd5
 ```
 
 ## Output
-A histogram of all sequence dGs post selection.     
-4nd5_Neff_1000000_af_dGs_.png  
-A histogram of all sequence ddGs post selection.      
-4nd5_Neff_1000000_af_ddGs_.png   
-A histogram of all sequence ddGs before selection.  
-4nd5_Neff_1000000_b4_ddGs_.png     
-A histogram of all sequence dGs before selection.     
-4nd5_Neff_1000000_b4_dGs_.png     
-The ancestral sequences in fasta format.  
+**A histogram of all sequence dGs post selection.**     
+4nd5_Neff_1000000_af_dGs_.png & 4nd5_Neff_1000000_af_dGs_.txt  
+
+**A histogram of all sequence ddGs post selection.**      
+4nd5_Neff_1000000_af_ddGs_.png & 4nd5_Neff_1000000_af_ddGs_.txt  
+
+**A histogram of all sequence ddGs before selection.**  
+4nd5_Neff_1000000_b4_ddGs_.png & 4nd5_Neff_1000000_b4_ddGs_.txt       
+
+**A histogram of all sequence dGs before selection.**     
+4nd5_Neff_1000000_b4_dGs_.png & 4nd5_Neff_1000000_b4_dGs_.txt       
+
+**The ancestral sequences in fasta format.**  
 4nd5_Neff_1000000_ancs_.txt    
-The extant sequences in fasta format.     
+
+**The extant sequences in fasta format.**     
 4nd5_Neff_1000000_extants_.txt      
-Histograms of the selection coefficients, probabilities of accepted mutations, fixation probabilities of accepted mutations.      
-4nd5_Neff_1000000_slxn_probs_fix.png      
+
+**Histograms of the selection coefficients, probabilities of accepted mutations, fixation probabilities of accepted mutations.**      
+4nd5_Neff_1000000_slxn_probs_fix_.png & 4nd5_Neff_1000000_slxn_probs_fix_.txt    
+
+**Equilibrium frequencies and subsutitution matrix**    
+4nd5_Neff_1000000_eqfreq_.png & 4nd5_Neff_1000000_eqfreq_.txt    
+4nd5_Neff_1000000_submat_.png & 4nd5_Neff_1000000_submat_.txt 
