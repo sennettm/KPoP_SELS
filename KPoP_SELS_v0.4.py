@@ -822,7 +822,7 @@ def plt_ddG_af_slxn(pdb, Neff, af_ddG, direct, add):
     title1=pdb+'_Neff_'+str(Neff)+'_af_ddGs_'+add+'.png'
     plt.savefig(os.path.join(direct,title1), bbox_inches='tight', pad_inches=0.3, dpi=300)
 
-    title2=pdb+'_Neff_'+str(Neff)+'_af_dGs_'+add+'.txt'
+    title2=pdb+'_Neff_'+str(Neff)+'_af_ddGs_'+add+'.txt'
     with open(os.path.join(direct, title2), 'w+') as outfile:
         for line in af_ddG:
             outfile.write(str(line)+'\n')
