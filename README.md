@@ -72,7 +72,7 @@ Copy the scripts and one of the test data sets into some test folder.
 
 Usage
 ```
-./KPOP_SELS_v0.1.py -h 
+./KPOP_SELS_v0.4.py -h 
 ```
 
 Example
