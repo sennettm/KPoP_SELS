@@ -3,7 +3,7 @@
 #################################################################################################################################
 #Script Name    : EvoSim.py
 #Description    : simulate evolution along a tree using a model dependent on protein stability and population genetics
-#Author         : Michael A Sennett
+#Author         : Michael A Sennett & Douglas Theobald
 #################################################################################################################################
 
 import gzip
@@ -303,7 +303,7 @@ def intro_mut(cdn_seq):
         else:
             mut_num_lst=rd.sample([0,0,1,2], 4)
 
-        #sampleing from nuc dist with equal probs
+        #sampling from nuc dist with equal probs
 
         #propose mutation
         for mut_num in mut_num_lst:
@@ -354,49 +354,9 @@ def intro_mut(cdn_seq):
 
 #################################################################################################################################
 
-def calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, rc_res_dct, N_eff, m, fit):
+def calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, rc_res_dct, N_eff, m, fit, scale):
 
-    if fit == 2:
-        mu=0.01
-        sigma=1.4
-        ddG=rd.gauss(mu, sigma)
-
-        dG_V=dG_i+ddG
-        wv=1/(1+np.exp(dG_V))
-        wi=1/(1+np.exp(dG_i))
-
-        s_mut=np.log(wv)-np.log(wi)
-
-        if N_eff > 10:
-            scale=N_eff/30
-            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)*scale
-
-        else:
-            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)
-
-        return fv, dG_V, s_mut, ddG
-
-    if fit == 1:
-        wi=1/(1+np.exp(dG_i))
-        c=10/N_eff
-        dw=rd.uniform(-0.5,0.5)*c
-        wv=wi+dw
-        if wv >= 1.0:
-            wv=2.0-wv
-
-        s_mut=np.log(wv)-np.log(wi)
-        if N_eff > 10:
-            scale=N_eff/100
-            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)*scale
-        else:
-            fv=np.expm1(-s_mut)/np.expm1(-1*N_eff*s_mut)
-
-        dG_V=np.log(1-wv)-np.log(wv)
-        ddG=dG_V-dG_i
-
-        return fv, dG_V, s_mut, ddG
-
-    else:
+    if fit == 0:
 
         seq_len=len(wt_aa_seq)
         #calc the native state G for the initial seq/struct
@@ -427,11 +387,6 @@ def calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, r
     
         s_mut=(wv-wi)/wi
     
-        if m > 100000:
-            scale = N_eff/10
-        else:
-            scale = N_eff/N_eff
-    
         if s_mut == 0:
             fv=1/N_eff*scale
         else:
@@ -441,18 +396,15 @@ def calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, r
 
 #################################################################################################################################
 
-        
 #################################################################################################################################
 
-
-#################################################################################################################################
-
-def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, seq, fit):
+def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, seq, fit, burn):
 
     #user defined initial variables from input
     N_eff=Neff
     fit=fit
     seq=seq
+    burn_mut=burn
     
     
     #non-user defined initial variables from input
@@ -516,6 +468,58 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, 
     #traverse the tree and sim evo
     dG_i=dG_WT
 
+
+    #### burn-in here so that when traverse tree it will start from eq ####
+    b_bf_dGs=[]
+    burn_mut=100000
+    tmp_b_dGs=[]
+    b_tmp_cd_seq="".join(cd_seq)
+    
+    b_new_tmp=[]
+    for j in range(0, len(b_tmp_cd_seq), 3):
+        b_new_tmp.append(b_tmp_cd_seq[j:j+3])
+    b_tmp_seq=b_new_tmp
+    b=0
+    fit=0
+    scale=1
+    while b < burn_mut:
+        wt_b_cdn_seq=b_tmp_seq
+        wt_b_aa_seq=cdn_2_aa(wt_b_cdn_seq)
+        wt_b_cdn, var_b_cdn, site_b, var_b_cdn_seq=intro_mut(wt_b_cdn_seq)
+        var_b_aa_seq=cdn_2_aa(var_b_cdn_seq)
+        wt_b_aa=get_cdn_key(wt_b_cdn)
+        var_b_aa=get_cdn_key(var_b_cdn)
+        if var_b_aa == wt_b_aa and b > 0:
+            fv=1/N_eff*scale
+            b_ddG=np.longdouble(0.0)
+            b_s_mut=np.longdouble(0.0)
+            b_dG_i=tmp_b_dGs[-1]
+            b_dG_v=tmp_b_dGs[-1]
+        else:
+            fv, dG_i, G_i, avg_G_i_rc, std_G_i_rc, dG_v, G_v, avg_G_v_rc, std_G_v_rc, ddG, s_mut = calc_Pfix(wt_b_aa_seq, var_b_aa_seq, lookup_table, res_nums, rc_lookup_tables, rc_res_dct, N_eff, b, fit, scale)
+        b_bf_dGs.append(np.longdouble(dG_v))
+        
+        dice=rd.uniform(0,1)
+        if dice < fv:
+            dG_i=dG_v
+            b_tmp_seq=var_b_cdn_seq
+            tmp_b_dGs.append(np.longdouble(dG_i))
+        else:
+            dG_i=dG_i
+            tmp_b_dGs.append(np.longdouble(dG_i))
+            
+        if b%(10000) == 0:
+            #scale=scale*10
+            print(int(b/burn_mut*100), '% done')
+        else:
+            pass
+        
+        b+=1
+        
+    cd_seq=b_tmp_seq
+
+    ######  end burn in #####
+
     for node in sim_tree.preorder_node_iter():
 
         if node.taxon.label not in aln:
@@ -549,7 +553,7 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, 
                     exp_mut=1
                 
                 while m < exp_mut:
-                    
+                    scale=N_eff/10
                     #intro mut and convert codon seq to aa seq
                     wt_cdn_seq=tmp_seq
                     wt_aa_seq=cdn_2_aa(tmp_seq)
@@ -560,10 +564,6 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, 
 
                     if var_aa == wt_aa and m > 0:
 
-                        if m > 100000:
-                            scale = N_eff/10
-                        else:
-                            scale = N_eff/N_eff
                         fv=1/N_eff*scale
                         ddG=np.longdouble(0.0)
                         s_mut=np.longdouble(0.0)
@@ -571,11 +571,8 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, 
                         dG_v=tmp_dGs[-1]
 
                     else:
-                        if fit == 0:
-                            fv, dG_i, G_i, avg_G_i_rc, std_G_i_rc, dG_v, G_v, avg_G_v_rc, std_G_v_rc, ddG, s_mut = calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, rc_res_dct, N_eff, m, fit)
-                        else:
-                            ddG=1.
-                            fv, dG_V, s_mut, ddG=calc_Pfix(dG_i, ddG, N_eff, fit)
+                        
+                        fv, dG_i, G_i, avg_G_i_rc, std_G_i_rc, dG_v, G_v, avg_G_v_rc, std_G_v_rc, ddG, s_mut = calc_Pfix(wt_aa_seq, var_aa_seq, lookup_table, res_nums, rc_lookup_tables, rc_res_dct, N_eff, m, fit, scale)
                     bf_dGs.append(np.longdouble(dG_v))
                     bf_ddG.append(np.longdouble(ddG))
                     dice=rd.uniform(0,1)
@@ -590,10 +587,8 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, 
                         af_sG_rc.append(std_G_i_rc)
                         wt_id=AA_miya_dct.get(wt_aa)
                         var_id=AA_miya_dct.get(var_aa)
-                        #only look at the ones after equilibrium
-                        if m > 100000:
-                            mut_mat[wt_id][var_id]+=1
-                            eq_res.append(var_aa)
+                        mut_mat[wt_id][var_id]+=1
+                        eq_res.append(var_aa)
                         dG_i=dG_v
                         tmp_seq=var_cdn_seq
                         af_probs.append(dice)
@@ -603,19 +598,12 @@ def EvoSim(wt_seq, res_nums, pdb_2d_arr, rc_res_lst, rc_pdb_2d_arr, tree, Neff, 
                         af_ddGs.append(np.longdouble(ddG))
 
                     else:
-                        pass
                         dG_i=dG_i
                         tmp_dGs.append(np.longdouble(dG_i))
                         af_G.append(G_i)
                         af_aG_rc.append(avg_G_i_rc)
                         af_sG_rc.append(std_G_i_rc)
-                        if m > 100000:
-                            eq_res.append(wt_aa)
-
-                    if m%(10000) == 0:
-                        print(int(m/exp_mut*100), '% done')
-                    else:
-                        pass
+                        eq_res.append(wt_aa)
 
                     m+=1
 
@@ -737,8 +725,14 @@ def plt_dG_b4_slxn(pdb, Neff, b4_dG, direct, add):
                fontsize=14
               )
 
-    title=pdb+'_Neff_'+str(Neff)+'_b4_dGs_'+add+'.png'
-    plt.savefig(os.path.join(direct,title), bbox_inches='tight', pad_inches=0.3, dpi=300)
+    title1=pdb+'_Neff_'+str(Neff)+'_b4_dGs_'+add+'.png'
+    plt.savefig(os.path.join(direct,title1), bbox_inches='tight', pad_inches=0.3, dpi=300)
+
+    title2=pdb+'_Neff_'+str(Neff)+'_b4_dGs_'+add+'.txt'
+    with open(os.path.join(direct, title2), 'w+') as outfile:
+        for line in b4_dG:
+            outfile.write(str(line)+'\n')
+        outfile.close()
 
 
 #################################################################################################################################
@@ -767,8 +761,14 @@ def plt_dG_af_slxn(pdb, Neff, dGs, direct, add):
                fontsize=14
               )
 
-    title=pdb+'_Neff_'+str(Neff)+'_af_dGs_'+add+'.png'
-    plt.savefig(os.path.join(direct,title), bbox_inches='tight', pad_inches=0.3, dpi=300)
+    title1=pdb+'_Neff_'+str(Neff)+'_af_dGs_'+add+'.png'
+    plt.savefig(os.path.join(direct,title1), bbox_inches='tight', pad_inches=0.3, dpi=300)
+
+    title2=pdb+'_Neff_'+str(Neff)+'_af_dGs_'+add+'.txt'
+    with open(os.path.join(direct, title2), 'w+') as outfile:
+        for line in all_dGs:
+            outfile.write(str(line)+'\n')
+        outfile.close()
 
 ################################################################################################################################# 
 
@@ -790,8 +790,14 @@ def plt_ddG_b4_slxn(pdb, Neff, b4_ddG, direct, add):
                fontsize=14
               )
 
-    title=pdb+'_Neff_'+str(Neff)+'_b4_ddGs_'+add+'.png'
-    plt.savefig(os.path.join(direct,title), bbox_inches='tight', pad_inches=0.3, dpi=300)
+    title1=pdb+'_Neff_'+str(Neff)+'_b4_ddGs_'+add+'.png'
+    plt.savefig(os.path.join(direct,title1), bbox_inches='tight', pad_inches=0.3, dpi=300)
+
+    title2=pdb+'_Neff_'+str(Neff)+'_b4_ddGs_'+add+'.txt'
+    with open(os.path.join(direct, title2), 'w+') as outfile:
+        for line in b4_ddG:
+            outfile.write(str(line)+'\n')
+        outfile.close()
 
 #################################################################################################################################
 
@@ -813,8 +819,96 @@ def plt_ddG_af_slxn(pdb, Neff, af_ddG, direct, add):
                fontsize=14
               )
 
-    title=pdb+'_Neff_'+str(Neff)+'_af_ddGs_'+add+'.png'
-    plt.savefig(os.path.join(direct,title), bbox_inches='tight', pad_inches=0.3, dpi=300)
+    title1=pdb+'_Neff_'+str(Neff)+'_af_ddGs_'+add+'.png'
+    plt.savefig(os.path.join(direct,title1), bbox_inches='tight', pad_inches=0.3, dpi=300)
+
+    title2=pdb+'_Neff_'+str(Neff)+'_af_dGs_'+add+'.txt'
+    with open(os.path.join(direct, title2), 'w+') as outfile:
+        for line in af_ddG:
+            outfile.write(str(line)+'\n')
+        outfile.close()
+
+#################################################################################################################################
+
+def plt_sub_mat(pdb, Neff, mut_mat, direct, add):
+    
+    new_mat=np.zeros((20,20))
+    off_by=[]
+    for i in range(len(mut_mat)):
+        for j in range(len(mut_mat)):
+            #eq, lt, gt
+            if j == i:
+                pass
+            elif j < i:
+                new_mat[i,j]=mut_mat[i,j]+mut_mat[j,i]
+            else:
+                pass
+
+    plt.rc('font', family='courier')
+    plt.rcParams.update({'font.size': 12})
+    plt.figure(figsize=[5,5])
+
+    x_=[]
+    y_=[]
+    dots=[]
+    for i in range(len(AA_miya)):
+        for j in range(len(AA_miya)):
+            y_.append(i)
+            x_.append(j)
+            dots.append(new_mat[i,j])
+
+    plt.scatter(x_,y_,color='black',s=dots)
+    plt.yticks(ticks=range(len(AA_miya)),labels=AA_miya)
+    plt.xticks(ticks=range(len(AA_miya)),labels=AA_miya)
+    plt.title('substitutions')
+    plt.grid(which='major', color='black', linewidth=0.5)
+    plt.ylim(top=-1, bottom=20)
+
+    title1=pdb+'_Neff_'+str(Neff)+'_submat_'+add+'.png'
+    plt.savefig(os.path.join(direct,title1), bbox_inches='tight', pad_inches=0.3, dpi=300)
+
+    title2=pdb+'_Neff_'+str(Neff)+'_submat_'+add+'.txt'
+    with open(os.path.join(direct, title2), 'w+') as outfile:
+        for line in new_mat:
+            outfile.write(str(line)+'\n')
+        outfile.close()
+
+#################################################################################################################################
+
+def plt_eq_freq(pdb, Neff, eq_res, direct, add):
+    freqs=[]
+    for a in AA_miya:
+        c=0
+        for res in eq_res:
+            if a == res:
+                c+=1
+            else:
+                pass
+        freqs.append(c/len(eq_res))
+
+
+    plt.rc('font', family='courier')
+    plt.rcParams.update({'font.size': 12})
+    plt.figure(figsize=[8,4.5])
+
+    aa_range=np.arange(len(AA_miya))
+
+    plt.bar(aa_range, freqs, width=0.4, label='Sim eq freqs')
+    plt.ylabel('frequency')
+    plt.xlabel('amino acid')
+    plt.xticks(aa_range, AA_miya)
+    plt.legend(loc='upper left')
+
+
+    title1=pdb+'_Neff_'+str(Neff)+'_eqfreq_'+add+'.png'
+    plt.savefig(os.path.join(direct,title1), bbox_inches='tight', pad_inches=0.3, dpi=300)
+
+    title2=pdb+'_Neff_'+str(Neff)+'_eqfreq_'+add+'.txt'
+    with open(os.path.join(direct, title2), 'w+') as outfile:
+        outfile.write(str(AA_miya)+'\n')
+        for line in freqs:
+            outfile.write(str(line)+'\n')
+        outfile.close()
 
 #################################################################################################################################
 
@@ -879,14 +973,16 @@ parser.add_argument("-N", "--Neff", default=1000000,
                     help="effective population size, default=1000000")
 parser.add_argument("-F", "--fitness", default=0,
                     help="if 0 then fitness determined by res contact potentials,\
-if 1 then fitness determined by sampling uniform fitness,\
-and if 2 then fitness determined by sampling ddG, default=0")
+default=0")
 parser.add_argument("-S", "--sequence", default=1,
                     help="if 0 then random AA seq is seeded at root of tree,\
-if 1 then the pdb AA seq is seeded at root of tree,\
-and if 2 then corresponding codon sequence is seeded at root of tree, default=1")
+if 1 then a random codon sequence corresponding to the pdb AA seq is seeded at root of tree,\
+default=1")
 parser.add_argument("-A", "--addendum", type=str, default='',
                     help="extra identifier, like gene, prot fam, tree, etc...")
+parser.add_argument("-B", "--burn-in", type=int, default=100000,
+                    help="number of proposed mutations to reach equilibrium,\
+the default=100000")
 
 
 requiredNamed = parser.add_argument_group('required arguments')
@@ -910,7 +1006,7 @@ def main():
     seq, res, pdb_coord = parse_pdb_file(args.pdb_file)
     rc_res, rc_pdb_coord = get_rdn_coil_pdbs()    
     tree_path=os.path.join(args.direct,args.tree)
-    mut, aln, slxns, probs, prob_of_fix, dGs, ddGs, mut_mat, eq_res, b4_dG, b4_ddG, tree, af_G, af_aG_rc, af_sG_rc=EvoSim(seq, res, pdb_coord, rc_res, rc_pdb_coord, tree_path, args.Neff, args.sequence, args.fitness)
+    mut, aln, slxns, probs, prob_of_fix, dGs, ddGs, mut_mat, eq_res, b4_dG, b4_ddG, tree, af_G, af_aG_rc, af_sG_rc=EvoSim(seq, res, pdb_coord, rc_res, rc_pdb_coord, tree_path, args.Neff, args.sequence, args.fitness, args.burn_in)
     
     #make some alnmts & plts
     write_tree(tree, args.Neff, args.pdb_file, args.direct, args.addendum) 
@@ -920,7 +1016,10 @@ def main():
     plt_dG_af_slxn(args.pdb_file, args.Neff, dGs, args.direct, args.addendum)
     plt_ddG_b4_slxn(args.pdb_file, args.Neff, b4_ddG, args.direct, args.addendum)
     plt_ddG_af_slxn(args.pdb_file, args.Neff, ddGs, args.direct, args.addendum)
+    plt_sub_mat(args.pdb_file, args.Neff, mut_mat, args.direct, args.addendum)
+    plt_eq_freq(args.pdb_file, args.Neff, eq_res, args.direct, args.addendum)
 
 if __name__ == '__main__':
     main()
     
+
